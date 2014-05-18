@@ -41,7 +41,7 @@ Plotting the histogram:
 
 ```{r}
 # I am not sure if it should be done this way
-hist(daily_steps$steps)
+plot(daily_steps, type="h")
 
 # or this way
 ggplot(daily_steps, aes(x=date, y= steps)) + geom_bar(stat="identity")
