@@ -64,14 +64,18 @@ median(daily_steps$steps, na.rm=T)
 Firstly, let's plot a time series plot with 5-minutes interval (x-axis) and the average number of steps taken, averaged across all days (y-axis).
 
 ```{r}
-raw_avg_steps <- sqldf('select interval, avg(steps) as avg_steps from raw_data group by interval order by avg_steps desc')
+raw_avg_steps <- sqldf('select interval, avg(steps) as avg_steps from raw_data group by interval order by interval asc')
+
 ggplot(raw_avg_steps, aes(x=interval, y=avg_steps)) + geom_bar(stat="identity")
+
+plot(raw_avg_steps$avg_steps, type='l')
 ```
 
 The 5-minutes interval which contains the maximum number of steps:
 
 ```{r}
-raw_avg_steps[1,]
+largest_avg_steps <- sqldf('select interval, avg(steps) as avg_steps from raw_data group by interval order by avg_steps desc')
+largest_avg_steps[1,]
 ```
 
 ## Imputing missing values
@@ -132,3 +136,23 @@ median(filled_daily_steps$steps, na.rm=T)
 The impact of imputing data in the rows with NA values in the step column made the median become equals to the mean. Another change was at the 'ggplot' graph of the total number of steps taken per day, which one the missing data now appears at the graph.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Separating the weekends from the weekdays:
+
+```{r}
+weekends <- unique(data$date[ as.POSIXlt(as.Date(data$date,'%m/%d/%Y'))$wday %in% c(0,6)])
+aug_data <- transform(data ,weekend = ifelse(data$date %in% as.Date(weekends,'%m/%d/%Y') ,1,0 ))
+
+avg_steps_weekdays <- sqldf('select interval, avg(steps) as avg_steps from aug_data where weekend = 0 group by interval order by interval asc')
+
+plot(avg_steps_weekdays$avg_steps, type='l')
+ggplot(avg_steps_weekdays, aes(x=interval, y=avg_steps)) + geom_bar(stat="identity")
+
+avg_steps_weekends <- sqldf('select interval, avg(steps) as avg_steps from aug_data where weekend = 1 group by interval order by interval asc')
+
+plot(avg_steps_weekends$avg_steps, type='l')
+ggplot(avg_steps_weekends, aes(x=interval, y=avg_steps)) + geom_bar(stat="identity")
+
+```
+
+According to the data, I conclude that this person walks more at the mornings during the weekdays and less during the evening and the night. During the weekends, I could observe the opposite, this person walks more during the evening and the night and less during the morning.
