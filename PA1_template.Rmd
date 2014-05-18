@@ -1,20 +1,134 @@
 # Reproducible Research: Peer Assessment 1
 
+To do this peer assessment, I followed the steps below:
 
 ## Loading and preprocessing the data
 
+To load the data, first I had to clone the forked repository, using the following command:
 
+```{bash}
+mkdir -p ~/sandbox/ReproducibleResearch
+cd ~/sandbox/ReproducibleResearch
+git clone https://github.com/andretadeu/RepData_PeerAssessment1.git
+```
+In RStudio, I loaded the raw data with the following R code:
+```{r}
+path = '/home/andre/sandbox/ReproducibleResearch/RepData_PeerAssessment1/'
+unzip(paste(path, 'activity.zip', sep=''), exdir=path)
+raw_data = read.csv(paste(path, 'activity.csv', sep=''))
+```
+
+To execute the scripts in this file, it is necessary to load the following libraries:
+
+```{r}
+library(sqldf)
+library(ggplot2)
+```
 
 ## What is mean total number of steps taken per day?
 
+I decided to use 'sqldf' R package to obtain the mean total number of steps taken per day.
+Using the following commands I am able to calculate the sum of the steps taken each day:
 
+```{r}
+raw_daily_steps <- sqldf('select date, sum(steps) as d_steps from raw_data group by date order by date asc')
+daily_steps <- data.frame(
+    date = as.Date(raw_daily_steps$date),
+    steps = as.numeric(raw_daily_steps$d_steps))
+```
+
+Plotting the histogram:
+
+```{r}
+# I am not sure if it should be done this way
+hist(daily_steps$steps)
+
+# or this way
+ggplot(daily_steps, aes(x=date, y= steps)) + geom_bar(stat="identity")
+```
+
+and now I calculate the mean of the total number of steps taken per day:
+
+```{r}
+mean(daily_steps$steps, na.rm=T)
+```
+
+and the median of the total number of steps taken per day:
+
+```{r}
+median(daily_steps$steps, na.rm=T)
+```
 
 ## What is the average daily activity pattern?
 
+Firstly, let's plot a time series plot with 5-minutes interval (x-axis) and the average number of steps taken, averaged across all days (y-axis).
 
+```{r}
+raw_avg_steps <- sqldf('select interval, avg(steps) as avg_steps from raw_data group by interval order by avg_steps desc')
+ggplot(raw_avg_steps, aes(x=interval, y=avg_steps)) + geom_bar(stat="identity")
+```
+
+The 5-minutes interval which contains the maximum number of steps:
+
+```{r}
+raw_avg_steps[1,]
+```
 
 ## Imputing missing values
 
+The number lines in the data set that contains 'NA' in step column:
 
+```{r}
+na_lines <- raw_data[is.na(raw_data$steps),]
+nrow(na_lines)
+```
+
+To fill these 'NA' values, I chose the strategy of getting the mean of the 5-minutes interval and I set zero to the 5-minutes interval which ones contains solely 'NA's:
+
+```{r}
+na_intervals <- sqldf('select distinct(interval) from na_lines')
+data <- data.frame(steps = as.integer(raw_data$steps),
+                   date = as.Date(raw_data$date),
+                   interval = raw_data$interval)
+
+# Here I fill the new data set with the values
+
+for (na_interval in t(na_intervals)) {
+    number_of_steps <- raw_avg_steps[raw_avg_steps$interval == na_interval, 'avg_steps']
+    if (!is.null(number_of_steps)) {
+        data[is.na(data$steps) & data$interval == na_interval, 'steps'] <- number_of_steps
+    }
+}
+data[is.na(data$steps), 'steps'] <- 0
+```
+
+Now I plot again the mean total number of steps taken per day:
+
+```{r}
+filled_daily_steps <- sqldf('select date, sum(steps) as d_steps from data group by date order by date asc')
+filled_daily_steps <- data.frame(
+    date = as.Date(filled_daily_steps$date),
+    steps = as.numeric(filled_daily_steps$d_steps))
+
+# I am not sure if it should be done this way
+hist(filled_daily_steps$steps)
+
+# or this way
+ggplot(filled_daily_steps, aes(x=date, y= steps)) + geom_bar(stat="identity")
+```
+
+and now I calculate the mean of the total number of steps taken per day:
+
+```{r}
+mean(filled_daily_steps$steps, na.rm=T)
+```
+
+and the median of the total number of steps taken per day:
+
+```{r}
+median(filled_daily_steps$steps, na.rm=T)
+```
+
+The impact of imputing data in the rows with NA values in the step column made the median become equals to the mean. Another change was at the 'ggplot' graph of the total number of steps taken per day, which one the missing data now appears at the graph.
 
 ## Are there differences in activity patterns between weekdays and weekends?
